@@ -53,11 +53,7 @@ while(1):
         approx = cv2.approxPolyDP(cnt, epsilon, True)
         #make convex hull around hand
         hull = cv2.convexHull(cnt)
-        #define area of hull and area of hand
-        areahull = cv2.contourArea(hull)
-        areacnt = cv2.contourArea(cnt)
-        #find the percentage of area not covered by hand in convex hull
-        arearatio = ((areahull - areacnt) / areacnt) * 100
+        
         #find the defects in convex hull with respect to hand
         hull = cv2.convexHull(approx, returnPoints = False)
         defects = cv2.convexityDefects(approx, hull)
