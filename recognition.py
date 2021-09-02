@@ -2,20 +2,28 @@ import cv2
 import numpy as np
 import math
 
-SHOW_FRAME  = True
-SHOW_MASK   = False
+SHOW_FRAME  = False
+SHOW_MASK   = True
 
-DRAW_TARGET_FRAME       = True
+USE_DIALATION = True    
+USE_GAUSSIAN_BLUR = True
+
 DRAW_HAND_LINES         = True
+DRAW_HULL_DEFECTS       = True
 DRAW_FINGER_CRACKS      = True
-DRAW_REGION_OF_INTEREST = True
+DRAW_REGION_OF_INTEREST = True  
 
 BLUE    = [255, 0, 0]
 GREEN   = [0, 255, 0]
 RED     = [0, 0, 255]
 
-LOWER_SKIN_HUE = [80,0,130]
-UPPER_SKIN_HUE = [200,255,255]
+LOWER_SKIN_HSV = np.array([0,  17, 175], dtype=np.uint8)
+UPPER_SKIN_HSV = np.array([28, 86, 255], dtype=np.uint8)
+
+ROI_X_FROM = 0
+ROI_X_TO = 300
+ROI_Y_FROM = 0
+ROI_Y_TO = 480
 
      
 def draw_text(frame, text):
@@ -30,35 +38,44 @@ while(1):
         kernel = np.ones((3,3),np.uint8)
         
         #define region of interest
-        region_of_interest=frame[100:300, 100:300]
-        hsv = cv2.cvtColor(region_of_interest, cv2.COLOR_BGR2HSV)
+        region_of_interest=frame[ROI_Y_FROM:ROI_Y_TO, ROI_X_FROM:ROI_X_TO]
+        roi = cv2.cvtColor(region_of_interest, cv2.COLOR_BGR2HSV)
+
         if DRAW_REGION_OF_INTEREST:
-            cv2.rectangle(frame, (100, 100), (300, 300), RED, 0)    
+            cv2.rectangle(frame, (ROI_X_FROM, ROI_Y_FROM), (ROI_X_TO, ROI_Y_TO), RED, 0)    
 
         # define range of skin color in HSV
-        lower_skin = np.array(LOWER_SKIN_HUE, dtype=np.uint8)
-        upper_skin = np.array(UPPER_SKIN_HUE, dtype=np.uint8)
-        #extract skin colur imagw  
-        mask = cv2.inRange(hsv, lower_skin, upper_skin)
+
+        #extract skin colur image 
+        mask = cv2.inRange(roi, LOWER_SKIN_HSV, UPPER_SKIN_HSV)
+    
         #extrapolate the hand to fill dark spots within
-        mask = cv2.dilate(mask,kernel, iterations = 4)
+        if USE_DIALATION:
+            mask = cv2.dilate(mask, kernel, iterations = 3)
+        
+        
         #blur the image
-        mask = cv2.GaussianBlur(mask, (5, 5), 100) 
-        #find contours
+        if USE_GAUSSIAN_BLUR:
+            mask = cv2.GaussianBlur(mask, (5, 5), 100)
+        
+        #find edges
         contours, hierarchy= cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        #find contour of max area(hand)
+        #find edges of max area(hand)
         cnt = max(contours, key = lambda x: cv2.contourArea(x))
         #approx the contour a little
         epsilon = 0.0005 * cv2.arcLength(cnt, True)
         approx = cv2.approxPolyDP(cnt, epsilon, True)
-        #make convex hull around hand
-        hull = cv2.convexHull(cnt)
         
+        
+        #make convex hull around hand
         #find the defects in convex hull with respect to hand
         hull = cv2.convexHull(approx, returnPoints = False)
         defects = cv2.convexityDefects(approx, hull)
+        
+        
+        
         #l = no. of finger cracks
-        l=0
+        l = 0
         #code for finding no. of defects due to fingers
         for i in range(defects.shape[0]):
             s, e, f, d = defects[i,0]
@@ -67,6 +84,10 @@ while(1):
             far = tuple(approx[f][0])
             pt= (100,180)
             
+            if DRAW_HULL_DEFECTS:
+                cv2.circle(region_of_interest, far, 3, RED, -1)
+
+
             # find length of all sides of triangle
             a = math.sqrt((end[0] - start[0])**2 + (end[1] - start[1])**2)
             b = math.sqrt((far[0] - start[0])**2 + (far[1] - start[1])**2)
@@ -102,7 +123,7 @@ while(1):
             cv2.imshow('mask',mask)
         if SHOW_FRAME:
             cv2.imshow('frame',frame)
-
+        
     except Exception as e: 
         print('Error')
         print(e)
