@@ -7,9 +7,9 @@ def nothing(x):
     pass
 
 # Initializing the webcam feed.
-cap = cv2.VideoCapture(0)
-cap.set(3,1280)
-cap.set(4,720)
+cap = cv2.VideoCapture('v4l2src device=/dev/video0 ! video/x-raw,format=YUY2,width=640,height=480,framerate=30/1 ! videoconvert ! video/x-raw,format=BGR ! appsink', cv2.CAP_GSTREAMER)
+#cap.set(3,1280)
+#cap.set(4,720)
 
 # Create a window named trackbars.
 cv2.namedWindow("Trackbars")
@@ -67,6 +67,8 @@ while True:
     
     # Show this stacked frame at 40% of the size.
     cv2.imshow('Trackbars',cv2.resize(stacked,None,fx=0.4,fy=0.4))
+    if cv2.waitKey(1) == 27:
+        break;
     
     # If the user presses ESC then exit the program
     key = cv2.waitKey(1)

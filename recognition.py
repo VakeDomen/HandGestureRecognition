@@ -2,7 +2,10 @@ import cv2
 import numpy as np
 import math
 
-SHOW_FRAME  = False
+from numpy.core.records import array
+
+
+SHOW_FRAME  = True
 SHOW_MASK   = True
 
 USE_DIALATION = True    
@@ -11,14 +14,16 @@ USE_GAUSSIAN_BLUR = True
 DRAW_HAND_LINES         = True
 DRAW_HULL_DEFECTS       = True
 DRAW_FINGER_CRACKS      = True
-DRAW_REGION_OF_INTEREST = True  
+DRAW_REGION_OF_INTEREST = True
+DRAW_CONTOURS           = True  
+DRAW_HULL               = True
 
 BLUE    = [255, 0, 0]
 GREEN   = [0, 255, 0]
 RED     = [0, 0, 255]
 
-LOWER_SKIN_HSV = np.array([0,  17, 175], dtype=np.uint8)
-UPPER_SKIN_HSV = np.array([28, 86, 255], dtype=np.uint8)
+LOWER_SKIN_HSV = np.array([154,  60, 130], dtype=np.uint8)
+UPPER_SKIN_HSV = np.array([179, 255, 255], dtype=np.uint8)
 
 ROI_X_FROM = 0
 ROI_X_TO = 300
@@ -59,57 +64,49 @@ while(1):
             mask = cv2.GaussianBlur(mask, (5, 5), 100)
         
         #find edges
-        contours, hierarchy= cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         #find edges of max area(hand)
         cnt = max(contours, key = lambda x: cv2.contourArea(x))
+        simple_cnt = cv2.approxPolyDP(cnt, 10, True)
+        hull = cv2.convexHull(simple_cnt, returnPoints = False)
+        hull_display = cv2.convexHull(simple_cnt, returnPoints = True)
         #approx the contour a little
-        epsilon = 0.0005 * cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, epsilon, True)
+        defects = cv2.convexityDefects(simple_cnt, hull)
         
+        if DRAW_CONTOURS:
+            #cv2.drawContours(frame, contours, -1, BLUE, 3)
+            #cv2.drawContours(frame, [cnt], -1, RED, 3)
+            cv2.drawContours(frame, [simple_cnt], -1, GREEN, 2)
         
-        #make convex hull around hand
-        #find the defects in convex hull with respect to hand
-        hull = cv2.convexHull(approx, returnPoints = False)
-        defects = cv2.convexityDefects(approx, hull)
-        
-        
-        
+        if DRAW_HULL:
+            cv2.drawContours(frame, [hull_display], -1, GREEN, 4)
+
         #l = no. of finger cracks
         l = 0
+        
         #code for finding no. of defects due to fingers
         for i in range(defects.shape[0]):
-            s, e, f, d = defects[i,0]
-            start = tuple(approx[s][0])
-            end = tuple(approx[e][0])
-            far = tuple(approx[f][0])
-            pt= (100,180)
+            hull_start_index, hull_end_index, farthest_point_index, distance = defects[i,0]
             
-            if DRAW_HULL_DEFECTS:
-                cv2.circle(region_of_interest, far, 3, RED, -1)
-
-
-            # find length of all sides of triangle
-            a = math.sqrt((end[0] - start[0])**2 + (end[1] - start[1])**2)
-            b = math.sqrt((far[0] - start[0])**2 + (far[1] - start[1])**2)
-            c = math.sqrt((end[0] - far[0])**2 + (end[1] - far[1])**2)
-            s = (a+b+c)/2
-            ar = math.sqrt(s * (s - a) * (s - b) * (s - c))
+            hull_start_point    = tuple(simple_cnt[hull_start_index][0])
+            hull_end_point      = tuple(simple_cnt[hull_end_index][0])
+            farthest_point      = tuple(simple_cnt[farthest_point_index][0])
             
-            #distance between point and convex hull
-            d = (2 * ar) / a
-            # apply cosine rule here
-            angle = math.acos((b**2 + c**2 - a**2)/(2*b*c)) * 57
+            l_hs_fp = math.sqrt((hull_start_point[0] - farthest_point[0]) ** 2 + (hull_start_point[1] - farthest_point[1]) ** 2) 
+            l_he_fp = math.sqrt((hull_end_point[0]   - farthest_point[0]) ** 2 + (hull_end_point[1]   - farthest_point[1]) ** 2) 
+            l_hs_he = math.sqrt((hull_start_point[0] - hull_end_point[0]) ** 2 + (hull_start_point[1] - hull_end_point[1]) ** 2) 
+
+            right_ang_length = math.sqrt(l_he_fp ** 2 + l_hs_fp ** 2)
+
+            if (right_ang_length < l_hs_he):
+                continue
+
+            l += 1
+            if DRAW_FINGER_CRACKS:
+                cv2.circle(region_of_interest, farthest_point, 3, BLUE, -1)
+                cv2.circle(region_of_interest, hull_start_point, 3, RED, -1)
+                cv2.circle(region_of_interest, hull_end_point, 3, RED, -1)
         
-            # ignore angles > 90 and ignore points very close to convex hull(they generally come due to noise)
-            if angle <= 90 and d > 30:
-                l += 1
-                if DRAW_FINGER_CRACKS:
-                    cv2.circle(region_of_interest, far, 3, GREEN, -1)
-            
-            if DRAW_HAND_LINES:
-                cv2.line(region_of_interest, start, end, BLUE, 2)
-            
-            
         #print corresponding gestures which are in their ranges
         if l == 0:
             draw_text(frame, 'Rock')
