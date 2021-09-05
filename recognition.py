@@ -6,7 +6,7 @@ from numpy.core.records import array
 
 
 SHOW_FRAME  = True
-SHOW_MASK   = True
+SHOW_MASK   = False
 
 USE_DIALATION = True    
 USE_GAUSSIAN_BLUR = True
@@ -24,6 +24,7 @@ RED     = [0, 0, 255]
 
 LOWER_SKIN_HSV = np.array([154,  60, 130], dtype=np.uint8)
 UPPER_SKIN_HSV = np.array([179, 255, 255], dtype=np.uint8)
+KERNEL         = np.ones((3,3),np.uint8)
 
 ROI_X_FROM = 0
 ROI_X_TO = 300
@@ -38,9 +39,9 @@ def draw_text(frame, text):
 cap = cv2.VideoCapture(0)
 while(1):
     try:  
-        ret, frame = cap.read()
+        _, frame = cap.read()
         frame=cv2.flip(frame,1)
-        kernel = np.ones((3,3),np.uint8)
+        
         
         #define region of interest
         region_of_interest=frame[ROI_Y_FROM:ROI_Y_TO, ROI_X_FROM:ROI_X_TO]
@@ -56,7 +57,7 @@ while(1):
     
         #extrapolate the hand to fill dark spots within
         if USE_DIALATION:
-            mask = cv2.dilate(mask, kernel, iterations = 3)
+            mask = cv2.dilate(mask, KERNEL, iterations = 3)
         
         
         #blur the image
