@@ -6,14 +6,13 @@ from numpy.core.records import array
 
 
 SHOW_FRAME  = True
-SHOW_MASK   = False
+SHOW_MASK   = True
 
 USE_DIALATION = True    
 USE_GAUSSIAN_BLUR = True
 
-DRAW_HAND_LINES         = True
 DRAW_HULL_DEFECTS       = True
-DRAW_FINGER_CRACKS      = True
+DRAW_FINGER_CRACKS      = False
 DRAW_REGION_OF_INTEREST = True
 DRAW_CONTOURS           = True  
 DRAW_HULL               = True
@@ -22,8 +21,8 @@ BLUE    = [255, 0, 0]
 GREEN   = [0, 255, 0]
 RED     = [0, 0, 255]
 
-LOWER_SKIN_HSV = np.array([154,  60, 130], dtype=np.uint8)
-UPPER_SKIN_HSV = np.array([179, 255, 255], dtype=np.uint8)
+LOWER_SKIN_HSV = np.array([2,  40, 108], dtype=np.uint8)
+UPPER_SKIN_HSV = np.array([26, 107, 229], dtype=np.uint8)
 KERNEL         = np.ones((3,3),np.uint8)
 
 ROI_X_FROM = 0
@@ -86,27 +85,28 @@ while(1):
         l = 0
         
         #code for finding no. of defects due to fingers
-        for i in range(defects.shape[0]):
-            hull_start_index, hull_end_index, farthest_point_index, distance = defects[i,0]
-            
-            hull_start_point    = tuple(simple_cnt[hull_start_index][0])
-            hull_end_point      = tuple(simple_cnt[hull_end_index][0])
-            farthest_point      = tuple(simple_cnt[farthest_point_index][0])
-            
-            l_hs_fp = math.sqrt((hull_start_point[0] - farthest_point[0]) ** 2 + (hull_start_point[1] - farthest_point[1]) ** 2) 
-            l_he_fp = math.sqrt((hull_end_point[0]   - farthest_point[0]) ** 2 + (hull_end_point[1]   - farthest_point[1]) ** 2) 
-            l_hs_he = math.sqrt((hull_start_point[0] - hull_end_point[0]) ** 2 + (hull_start_point[1] - hull_end_point[1]) ** 2) 
+        if defects.any():
+            for i in range(defects.shape[0]):
+                hull_start_index, hull_end_index, farthest_point_index, distance = defects[i,0]
+                
+                hull_start_point    = tuple(simple_cnt[hull_start_index][0])
+                hull_end_point      = tuple(simple_cnt[hull_end_index][0])
+                farthest_point      = tuple(simple_cnt[farthest_point_index][0])
+                
+                l_hs_fp = math.sqrt((hull_start_point[0] - farthest_point[0]) ** 2 + (hull_start_point[1] - farthest_point[1]) ** 2) 
+                l_he_fp = math.sqrt((hull_end_point[0]   - farthest_point[0]) ** 2 + (hull_end_point[1]   - farthest_point[1]) ** 2) 
+                l_hs_he = math.sqrt((hull_start_point[0] - hull_end_point[0]) ** 2 + (hull_start_point[1] - hull_end_point[1]) ** 2) 
 
-            right_ang_length = math.sqrt(l_he_fp ** 2 + l_hs_fp ** 2)
+                right_ang_length = math.sqrt(l_he_fp ** 2 + l_hs_fp ** 2)
 
-            if (right_ang_length < l_hs_he):
-                continue
+                if (right_ang_length < l_hs_he):
+                    continue
 
-            l += 1
-            if DRAW_FINGER_CRACKS:
-                cv2.circle(region_of_interest, farthest_point, 3, BLUE, -1)
-                cv2.circle(region_of_interest, hull_start_point, 3, RED, -1)
-                cv2.circle(region_of_interest, hull_end_point, 3, RED, -1)
+                l += 1
+                if DRAW_FINGER_CRACKS:
+                    cv2.circle(region_of_interest, farthest_point, 3, BLUE, -1)
+                    cv2.circle(region_of_interest, hull_start_point, 3, RED, -1)
+                    cv2.circle(region_of_interest, hull_end_point, 3, RED, -1)
         
         #print corresponding gestures which are in their ranges
         if l == 0:
